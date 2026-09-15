@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.plainfreight/quotes",
+  "title": "Plain Freight",
+  "description": "All-in DDP quotes for China to USA shipments, 100 g to 2,000 kg, from a live rate card",
+  "version": "1.0.0",
+  "websiteUrl": "https://plainfreight.com/for-agents",
+  "repository": {
+    "url": "https://github.com/plainfreight-com/plainfreight-mcp",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://plainfreight.com/api/mcp"
+    }
+  ]
+}
