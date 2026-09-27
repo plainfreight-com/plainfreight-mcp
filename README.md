@@ -2,7 +2,7 @@
 
 A hosted [Model Context Protocol](https://modelcontextprotocol.io) server that quotes real
 freight. Ask it what it costs to ship something from China to the United States and it returns
-an all-in delivered-duty-paid price from the same rate card a human customer is quoted from:
+an all-in delivered-duty-paid price from the same pricing engine a human customer is quoted from:
 freight, US customs clearance, import duty and delivery to a US door, in one number.
 
 No API key. No signup. Nothing to install.
@@ -40,23 +40,32 @@ Check it by hand:
 ```bash
 curl -s -X POST https://plainfreight.com/api/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
 ## Tools
 
+Five tools. Only `generate_offer` records anything; the other four only read. No tool books
+or charges anything.
+
 | Tool | What it does |
 |---|---|
-| `generate_offer` | Prices a shipment. Needs `product` and `weight_kg` (0.1 to 2000); `dimensions`, `origin`, `destination_zip`, `urgency`, `email`, `name`, `company` and `notes` all improve the answer. Pass carton sizes when you have them: for light bulky cargo the volumetric weight sets the price, not the scale weight. |
-| `check_offer_status` | Polls the offer until `settled` is true. Every quote gets re-checked, which can add follow-up questions, change the options, or set `needs_review`. |
-| `track_shipment` | Reads the live record for a booked shipment from its tracking link. Read-only. |
+| `estimate_price` | A rough door to door cost in USD for air (and sea from 100 kg chargeable weight), from the same pricing engine. Needs `weight_kg`; `product`, carton sizes (`carton_length_cm`, `carton_width_cm`, `carton_height_cm`, `carton_count`) or `total_cbm` sharpen it. Returns the chargeable weight used (the greater of actual weight and carton volume in cm3 / 6,000), transit estimates and whether US import duty is included. Records nothing, contacts no one, needs no email. Goods that need a person to review them get no figure. |
+| `check_goods` | Says whether a product (`product`, in the user's words) is priced at once or reviewed by a person first (for example batteries, chemicals, food, cosmetics, seeds, vapes or weapons), with a plain explanation and what documents to have ready. Same screen as `generate_offer`, so it predicts what an offer will do. Records nothing. Not legal or customs advice. |
+| `generate_offer` | The firm offer. Needs `product` and `weight_kg` (0.1 to 2000); `dimensions`, `origin`, `destination_zip`, `urgency`, `email`, `name` and `notes` all improve the answer. Pass carton sizes when you have them: for light bulky cargo the volumetric weight sets the price, not the scale weight. Each call records a quote request, and if an `email` is given the written offer is mailed there once the second check settles (at most one offer email per address per day). Returns the options, a `quote_id` and a link to a booking form on plainfreight.com prefilled with the shipment. |
+| `check_offer_status` | Polls an offer by `quote_id` until `settled` is true. Every quote gets a second check, which can add follow-up questions, change the options, or set `needs_review`. Read-only. |
+| `track_shipment` | Reads the live record for a booked shipment from its `tracking_link` (`https://plainfreight.com/track/<token>`, or the bare token): current stage on the 10-stage lifecycle, route and dated events. Read-only. |
+
+Booking happens outside the chat: the user opens the prefilled booking form, replies to the
+offer email, or writes to hello@plainfreight.com quoting the `quote_id`. Nothing is paid before
+the goods are weighed at the warehouse.
 
 Two behaviours worth knowing before you build on it:
 
 - **`needs_review` means the prices are withheld on purpose.** The goods look restricted
   (batteries, food, chemicals) and a person has to clear them first. Do not present a number to
-  the user in that case; Plain Freight follows up by email. Branded goods are never held, they
-  are priced on a different channel.
+  the user in that case; Plain Freight follows up by email.
 - **The tracking token is the credential.** Anyone holding the link can read that shipment, and
   the record deliberately excludes cost and margin fields.
 
